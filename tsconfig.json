@@ -1,26 +1,16 @@
 {
-    "compilerOptions": {
-        "target": "es2021",
-        "lib": [
-            "es2021"
-        ],
-        "module": "es2022",
-        "moduleResolution": "bundler",
-        "resolveJsonModule": true,
-        "allowJs": true,
-        "checkJs": false,
-        "outDir": "./dist",
-        "isolatedModules": true,
-        "allowSyntheticDefaultImports": true,
-        "forceConsistentCasingInFileNames": true,
-        "strict": true,
-        "skipLibCheck": true
-    },
-    "include": [
-        "worker-configuration.d.ts",
-        "mcp.ts",
-        "local.ts",
-        "zig-docs-base.ts",
-        "get-zig-docs.ts"
-    ]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "esModuleInterop": true,
+    "outDir": "./dist",
+    "rootDir": "mcp",
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["mcp/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

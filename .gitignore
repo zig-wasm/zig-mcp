@@ -1,11 +1,3 @@
-# Wrangler project
-.dev.vars
-.wrangler/
-
-# Dependency directories
-node_modules/
-zig/
-data/
 dist/
-main.wasm
-coverage/
+node_modules/
+.zig-cache/
