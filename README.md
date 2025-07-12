@@ -1,185 +1,62 @@
-# Zig Docs MCP Server
+# Zig Docs MCP
 
-A Model Context Protocol (MCP) server that provides up-to-date documentation for the Zig programming language standard library and builtin functions.
+MCP server providing up-to-date Zig documentation and builtin functions.
 
-## Features
+## Installation
 
-- **Builtin Functions**: Search and get documentation for Zig's builtin functions (e.g., `@addWithOverflow`, `@atomicLoad`)
-- **Standard Library**: Browse and search the complete Zig standard library documentation
-- **Real-time Updates**: Automatically fetches the latest Zig master build documentation daily
-- **Dual Deployment**: Available as both Cloudflare Worker and local STDIO server
-- **MCP Integration**: Works with any MCP-compatible client
+### Claude Code
+```bash
+claude mcp add zig-docs npx -y zig-docs-mcp --version master --update-policy manual
+```
 
-## Available Tools
-
-### Builtin Functions
-- `list_builtin_functions` - Lists all available Zig builtin functions
-- `get_builtin_function` - Search for specific builtin functions by name or keywords
-
-### Standard Library
-- `list_std_members` - List members of a namespace/module (e.g., `std.fs`, `std.ArrayList`)
-- `get_std_doc_item` - Get detailed documentation for a specific item with examples and source code
-
-## Installation & Usage
-
-### Option 1: Use with npx (Recommended)
-
-For local usage with Claude Desktop or other MCP clients:
-
+### Claude Desktop
+Add to your MCP configuration:
 ```json
 {
   "mcpServers": {
-    "zig-docs-mcp": {
+    "zig-docs": {
       "command": "npx",
-      "args": ["-y", "zig-docs-mcp"]
+      "args": ["-y", "zig-docs-mcp", "--version", "master", "--update-policy", "manual"]
     }
   }
 }
 ```
 
-#### Force Local Documentation Generation
+## Tools
 
-By default, the server first attempts to download pre-built documentation files from mcp.zigwasm.org for faster startup. To force local generation from Zig source instead, use the `--build-zig-docs-locally` flag:
+- **`list_builtin_functions`** - Lists all available Zig builtin functions. Builtin functions are provided by the compiler and are prefixed with '@'. The comptime keyword on a parameter means that the parameter must be known at compile time. Use this to discover what functions are available, then use 'get_builtin_function' to get detailed documentation.
+- **`get_builtin_function`** - Search for Zig builtin functions by name and get their documentation, signatures, and usage information. Returns all matching functions ranked by relevance.
 
-```json
-{
-  "mcpServers": {
-    "zig-docs-mcp": {
-      "command": "npx",
-      "args": ["-y", "zig-docs-mcp", "--build-zig-docs-locally"]
-    }
-  }
-}
-```
+## Commands
 
-This flag is useful when you want to ensure the documentation is built from the latest Zig source, or when the download servers are unavailable.
-
-### Option 2: Install globally
+The CLI provides flexible options for version control and update management:
 
 ```bash
-npm install -g zig-docs-mcp
-```
-
-Then run directly:
-```bash
+# Start MCP server with defaults (master branch, manual updates)
 zig-docs-mcp
+
+# Use specific Zig version
+zig-docs-mcp --version 0.13.0
+
+# Enable automatic daily updates
+zig-docs-mcp --update-policy daily
+
+# Update documentation without starting server
+zig-docs-mcp update --version 0.14.1
 ```
 
-Or with the local generation flag:
-```bash
-zig-docs-mcp --build-zig-docs-locally
-```
+**Version options**:
+- `master` (default) - Latest development version from Zig's master branch
+- `0.13.0`, `0.12.0`, etc. - Specific Zig release versions
 
-### Option 3: Install from source
+**Update policies**:
+- `manual` (default) - No automatic updates, manual control only
+- `daily` - Check for documentation updates once per day
+- `startup` - Update documentation every time the server starts
 
-```bash
-git clone https://github.com/zig-wasm/zig-docs-mcp.git
-cd zig-docs-mcp
-npm install
-npm run get-docs  # Generate documentation data
-npm run build
-npm install -g .
-```
+## Cache
 
-### Option 4: Cloudflare Worker
-
-The server is also deployed as a Cloudflare Worker and automatically updates daily with the latest Zig documentation from the master branch.
-
-**Available endpoints:**
-- **Streamable HTTP**: `https://mcp.zigwasm.org/mcp` - Use this for HTTP-based MCP clients
-- **Server-Sent Events**: `https://mcp.zigwasm.org/sse` - Use this for SSE-based MCP clients
-
-These endpoints provide the same functionality as the local server but are hosted in the cloud for easy access without local installation.
-
-## Local Development
-
-```bash
-npm install
-npm run get-docs   # Generate documentation data
-npm run build      # Build TypeScript files
-npm test           # Run tests to verify everything works
-```
-
-### Development Commands
-
-- `npm run dev` - Start Cloudflare Workers development server
-- `npm run deploy` - Deploy to Cloudflare Workers production
-- `npm test` - Run all tests (unit, integration, and mocking tests)
-- `npm run test:watch` - Run tests in watch mode during development
-- `npm run format` - Format code with Biome
-- `npm run lint:fix` - Fix linting issues
-- `npm run type-check` - Run TypeScript type checking
-
-### Local Testing
-
-To test the local STDIO server:
-
-```bash
-npm run build
-node dist/local.js
-```
-
-## Data Requirements
-
-The server requires the following data files to be present:
-
-- `data/builtin-functions.json` - Extracted builtin function documentation
-- `data/sources.tar` - Zig stdlib documentation archive  
-- `main.wasm` - WebAssembly module for processing stdlib docs
-
-These are generated by running `npm run get-docs` in the project root.
-
-## Architecture
-
-This project supports both deployment modes:
-
-### Local Mode (STDIO)
-- **Entry point**: `local.ts` → `dist/local.js`
-- **Transport**: STDIO-based MCP server
-- **Data loading**: Direct filesystem access
-- **Use case**: Local development, Claude Desktop integration
-
-### Cloudflare Workers Mode  
-- **Entry point**: `mcp.ts`
-- **Transport**: HTTP-based MCP server with Durable Objects
-- **Data loading**: Cloudflare Workers Assets binding
-- **Use case**: Production deployment, web-based access
-
-Both implementations share the same core logic via `zig-docs-base.ts`.
-
-## Testing
-
-The project includes comprehensive tests for both implementations:
-
-```bash
-npm test               # Run all tests
-npm run test:watch     # Watch mode for development
-npm run test:ui        # Visual test interface
-npm run test:coverage  # Run with coverage reporting
-```
-
-Tests cover:
-- MCP protocol compliance
-- All 4 tools functionality
-- Error handling
-- Both local and Cloudflare Workers implementations
-- End-to-end integration
-
-## Troubleshooting
-
-### "Data not found" errors
-Run `npm run get-docs` to generate the required documentation data files.
-
-### Test failures
-1. Ensure data files exist: `npm run get-docs`
-2. Build TypeScript: `npm run build`
-3. Check for compilation errors: `npm run type-check`
-
-### Local server won't start
-1. Verify Node.js version (requires Node 18+)
-2. Check if required files exist: `main.wasm`, `data/` directory
-3. Try rebuilding: `npm run build`
-
-## License
-
-MIT
+Documentation is fetched from ziglang.org and cached in platform-specific directories:
+- Linux: `~/.cache/zig-docs-mcp/`
+- macOS: `~/Library/Caches/zig-docs-mcp/`
+- Windows: `%LOCALAPPDATA%\zig-docs-mcp\`
