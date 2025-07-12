@@ -1,6 +1,6 @@
 # Zig Docs MCP
 
-MCP server providing up-to-date Zig documentation and builtin functions.
+Model Context Protocol (MCP) server that provides up-to-date documentation for the Zig programming language standard library and builtin functions.
 
 ## Installation
 
