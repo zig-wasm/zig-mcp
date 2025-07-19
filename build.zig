@@ -38,5 +38,8 @@ pub fn build(b: *std.Build) !void {
         .dest_dir = .{ .override = .prefix },
     });
 
+    b.installFile("docs/index.html", "index.html");
+    b.installFile("docs/main.js", "main.js");
+
     b.getInstallStep().dependOn(&install_wasm.step);
 }

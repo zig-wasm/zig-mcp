@@ -39,6 +39,11 @@
       "formatter": {
         "indentWidth": 2
       }
+    },
+    {
+      "includes": ["docs/main.js"],
+      "formatter": { "enabled": false },
+      "linter": { "enabled": false }
     }
   ]
 }
