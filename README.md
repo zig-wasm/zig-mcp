@@ -46,11 +46,14 @@ zig-docs-mcp --update-policy daily
 
 # Update documentation without starting server
 zig-docs-mcp update --version 0.14.1
+
+# Start local web server to view documentation
+zig-docs-mcp view --version 0.14.1
 ```
 
 **Version options**:
 - `master` (default) - Latest development version from Zig's master branch
-- `0.13.0`, `0.12.0`, etc. - Specific Zig release versions
+- `0.14.1`, `0.14.0`, etc. - Specific Zig release versions
 
 **Update policies**:
 - `manual` (default) - No automatic updates, manual control only
