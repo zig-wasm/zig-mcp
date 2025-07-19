@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "dev": "bun run build && bunx @modelcontextprotocol/inspector bun dist/mcp.js",
-    "build": "zig build --release && tsc && cp zig-out/main.wasm mcp/index.html mcp/std.js dist/",
+    "build": "zig build --release && tsc && cp zig-out/main.wasm mcp/index.html dist/",
     "prepublishOnly": "npm run build",
     "lint": "bunx biome check",
     "lint:fix": "bunx biome check --write",
