@@ -1,4 +1,6 @@
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as path from "node:path";
 import envPaths from "env-paths";
 import extractBuiltinFunctions, { type BuiltinFunction } from "./extract-builtin-functions.js";
@@ -70,4 +72,122 @@ export async function ensureDocs(
     }
 
     return await extractBuiltinFunctions(zigVersion, isMcpMode);
+}
+
+async function downloadSourcesTar(zigVersion: string): Promise<string> {
+    const paths = envPaths("zig-docs-mcp", { suffix: "" });
+    const versionCacheDir = path.join(paths.cache, zigVersion);
+    const sourcesPath = path.join(versionCacheDir, "sources.tar");
+
+    if (fs.existsSync(sourcesPath)) {
+        console.log(`Using cached sources.tar from ${sourcesPath}`);
+        return sourcesPath;
+    }
+
+    const url = `https://ziglang.org/documentation/${zigVersion}/std/sources.tar`;
+    console.log(`Downloading sources.tar from: ${url}`);
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(
+            `Failed to download sources.tar from ${url}: ${response.status} ${response.statusText}`,
+        );
+    }
+
+    const buffer = await response.arrayBuffer();
+
+    if (!fs.existsSync(versionCacheDir)) {
+        fs.mkdirSync(versionCacheDir, { recursive: true });
+    }
+
+    fs.writeFileSync(sourcesPath, new Uint8Array(buffer));
+    console.log(`Downloaded sources.tar to ${sourcesPath}`);
+
+    return sourcesPath;
+}
+
+function openBrowser(url: string): void {
+    const platform = process.platform;
+    let command: string;
+
+    if (platform === "darwin") {
+        command = "open";
+    } else if (platform === "win32") {
+        command = "start";
+    } else {
+        command = "xdg-open";
+    }
+
+    spawn(command, [url], { detached: true, stdio: "ignore" }).unref();
+}
+
+export async function startViewServer(zigVersion: string): Promise<void> {
+    try {
+        const sourcesPath = await downloadSourcesTar(zigVersion);
+
+        const currentDir = path.dirname(new URL(import.meta.url).pathname);
+        const wasmPath = path.join(currentDir, "main.wasm");
+        const indexPath = path.join(currentDir, "index.html");
+        const stdJsPath = path.join(currentDir, "std.js");
+
+        const port = 8080;
+
+        const server = http.createServer((req, res) => {
+            let filePath: string;
+            const url = req.url || "/";
+
+            if (url === "/" || url === "/index.html") {
+                filePath = indexPath;
+            } else if (url === "/std.js") {
+                filePath = stdJsPath;
+            } else if (url === "/main.wasm") {
+                filePath = wasmPath;
+            } else if (url === "/sources.tar") {
+                filePath = sourcesPath;
+            } else {
+                res.writeHead(404);
+                res.end("File not found");
+                return;
+            }
+
+            if (!fs.existsSync(filePath)) {
+                res.writeHead(404);
+                res.end("File not found");
+                return;
+            }
+
+            const ext = path.extname(filePath).toLowerCase();
+            const contentTypes: { [key: string]: string } = {
+                ".html": "text/html",
+                ".js": "text/javascript",
+                ".css": "text/css",
+                ".wasm": "application/wasm",
+                ".tar": "application/x-tar",
+            };
+
+            const contentType = contentTypes[ext] || "application/octet-stream";
+
+            res.writeHead(200, { "Content-Type": contentType });
+            fs.createReadStream(filePath).pipe(res);
+        });
+
+        server.listen(port, () => {
+            const url = `http://localhost:${port}`;
+            console.log(`Server started at ${url}`);
+            console.log(`Serving Zig ${zigVersion} documentation`);
+            console.log("Press Ctrl+C to stop the server");
+
+            openBrowser(url);
+        });
+
+        process.on("SIGINT", () => {
+            console.log("\nShutting down server...");
+            server.close(() => {
+                process.exit(0);
+            });
+        });
+    } catch (error) {
+        console.error("Error starting view server:", error);
+        throw error;
+    }
 }

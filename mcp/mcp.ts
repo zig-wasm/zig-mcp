@@ -1,12 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ensureDocs, type UpdatePolicy } from "./docs.js";
+import { ensureDocs, startViewServer, type UpdatePolicy } from "./docs.js";
 import { registerAllTools } from "./tools.js";
 
 interface CLIOptions {
     version: string;
     updatePolicy: UpdatePolicy;
-    command?: "update";
+    command?: "update" | "view";
 }
 
 function parseArgs(args: string[]): CLIOptions {
@@ -20,6 +20,8 @@ function parseArgs(args: string[]): CLIOptions {
 
         if (arg === "update") {
             options.command = "update";
+        } else if (arg === "view") {
+            options.command = "view";
         } else if (arg === "--version" && i + 1 < args.length) {
             options.version = args[++i];
         } else if (arg === "--update-policy" && i + 1 < args.length) {
@@ -46,6 +48,7 @@ function printHelp() {
 
 Commands:
   update                                    Update documentation without starting MCP server
+  view                                      Start local web server to view documentation
 
 Options:
   --version <version>                       Zig version to use (default: master)
@@ -56,9 +59,10 @@ Options:
 
 Examples:
   zig-docs-mcp                              # Start MCP server with master version
-  zig-docs-mcp --version 0.13.0             # Start with specific version
+  zig-docs-mcp --version 0.14.1             # Start with specific version
   zig-docs-mcp --update-policy daily        # Auto-update daily on startup
-  zig-docs-mcp update --version 0.14.1      # Update docs to specific version`);
+  zig-docs-mcp update --version 0.14.1      # Update docs to specific version
+  zig-docs-mcp view --version master        # View documentation for specific version`);
 }
 
 async function main() {
@@ -69,6 +73,15 @@ async function main() {
         try {
             await ensureDocs(options.version, "startup", false);
             process.exit(0);
+        } catch {
+            process.exit(1);
+        }
+    }
+
+    if (options.command === "view") {
+        try {
+            await startViewServer(options.version);
+            return;
         } catch {
             process.exit(1);
         }
