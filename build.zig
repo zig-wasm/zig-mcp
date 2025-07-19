@@ -20,14 +20,14 @@ pub fn build(b: *std.Build) !void {
     const wasm_exe = b.addExecutable(.{
         .name = "main",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("docs/wasm/main.zig"),
+            .root_source_file = b.path("docs/main.zig"),
             .target = wasm_target,
             .optimize = optimize,
         }),
     });
 
     const walk_module = b.createModule(.{
-        .root_source_file = b.path("docs/wasm/Walk.zig"),
+        .root_source_file = b.path("docs/Walk.zig"),
     });
     wasm_exe.root_module.addImport("Walk", walk_module);
 
@@ -37,9 +37,6 @@ pub fn build(b: *std.Build) !void {
     const install_wasm = b.addInstallArtifact(wasm_exe, .{
         .dest_dir = .{ .override = .prefix },
     });
-
-    b.installFile("docs/index.html", "index.html");
-    b.installFile("docs/main.js", "main.js");
 
     b.getInstallStep().dependOn(&install_wasm.step);
 }

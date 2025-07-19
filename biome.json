@@ -41,7 +41,7 @@
       }
     },
     {
-      "includes": ["docs/main.js"],
+      "includes": ["mcp/std.js"],
       "formatter": { "enabled": false },
       "linter": { "enabled": false }
     }
