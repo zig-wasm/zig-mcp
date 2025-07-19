@@ -2,6 +2,9 @@
 
 Model Context Protocol (MCP) server that provides up-to-date documentation for the Zig programming language standard library and builtin functions.
 
+> [!TIP]
+> Add `use zigdocs` to your prompt if you want to explicitly instruct the LLM to use Zig docs tools. Otherwise, LLM will automatically decide when to utilize MCP tools based on the context of your questions.
+
 ## Installation
 
 ### Claude Code
