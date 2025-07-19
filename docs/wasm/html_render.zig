@@ -20,6 +20,8 @@ pub const RenderSourceOptions = struct {
     source_location_annotations: []const Annotation = &.{},
     /// Concatenated with dom_id.
     annotation_prefix: []const u8 = "l",
+    /// Whether to add markdown code fence wrapper.
+    add_code_fence: bool = true,
 };
 
 pub const Annotation = struct {
@@ -35,11 +37,6 @@ pub fn fileSourceHtml(
     options: RenderSourceOptions,
 ) !void {
     const ast = file_index.get_ast();
-    const file = file_index.get();
-
-    const g = struct {
-        var field_access_buffer: std.ArrayListUnmanaged(u8) = .empty;
-    };
 
     const start_token = ast.firstToken(root_node);
     const end_token = ast.lastToken(root_node) + 1;
@@ -59,6 +56,11 @@ pub fn fileSourceHtml(
 
     var next_annotate_index: usize = 0;
 
+    // Add markdown code fence if requested
+    if (options.add_code_fence) {
+        try out.appendSlice(gpa, "```zig\n");
+    }
+
     for (
         ast.tokens.items(.tag)[start_token..end_token],
         ast.tokens.items(.start)[start_token..end_token],
@@ -67,30 +69,25 @@ pub fn fileSourceHtml(
         const between = ast.source[cursor..start];
         if (std.mem.trim(u8, between, " \t\r\n").len > 0) {
             if (!options.skip_comments) {
-                try out.appendSlice(gpa, "<span class=\"tok-comment\">");
-                try appendUnindented(out, between, indent);
-                try out.appendSlice(gpa, "</span>");
+                try appendUnindentedPlain(out, between, indent);
             }
         } else if (between.len > 0) {
             if (options.collapse_whitespace) {
                 if (out.items.len > 0 and out.items[out.items.len - 1] != ' ')
                     try out.append(gpa, ' ');
             } else {
-                try appendUnindented(out, between, indent);
+                try appendUnindentedPlain(out, between, indent);
             }
         }
         if (tag == .eof) break;
         const slice = ast.tokenSlice(token_index);
         cursor = start + slice.len;
 
-        // Insert annotations.
+        // Skip annotations in markdown mode
         while (true) {
             if (next_annotate_index >= options.source_location_annotations.len) break;
             const next_annotation = options.source_location_annotations[next_annotate_index];
             if (cursor <= next_annotation.file_byte_offset) break;
-            try out.writer(gpa).print("<span id=\"{s}{d}\"></span>", .{
-                options.annotation_prefix, next_annotation.dom_id,
-            });
             next_annotate_index += 1;
         }
 
@@ -144,109 +141,34 @@ pub fn fileSourceHtml(
             .keyword_anytype,
             .keyword_fn,
             => {
-                try out.appendSlice(gpa, "<span class=\"tok-kw\">");
-                try appendEscaped(out, slice);
-                try out.appendSlice(gpa, "</span>");
+                try out.appendSlice(gpa, slice);
             },
 
             .string_literal,
             .char_literal,
             .multiline_string_literal_line,
             => {
-                try out.appendSlice(gpa, "<span class=\"tok-str\">");
-                try appendEscaped(out, slice);
-                try out.appendSlice(gpa, "</span>");
+                try out.appendSlice(gpa, slice);
             },
 
             .builtin => {
-                try out.appendSlice(gpa, "<span class=\"tok-builtin\">");
-                try appendEscaped(out, slice);
-                try out.appendSlice(gpa, "</span>");
+                try out.appendSlice(gpa, slice);
             },
 
             .doc_comment,
             .container_doc_comment,
             => {
                 if (!options.skip_doc_comments) {
-                    try out.appendSlice(gpa, "<span class=\"tok-comment\">");
-                    try appendEscaped(out, slice);
-                    try out.appendSlice(gpa, "</span>");
+                    try out.appendSlice(gpa, slice);
                 }
             },
 
-            .identifier => i: {
-                if (options.fn_link != .none) {
-                    const fn_link = options.fn_link.get();
-                    const fn_token = ast.nodeMainToken(fn_link.ast_node);
-                    if (token_index == fn_token + 1) {
-                        try out.appendSlice(gpa, "<a class=\"tok-fn\" href=\"#");
-                        _ = missing_feature_url_escape;
-                        try fn_link.fqn(out);
-                        try out.appendSlice(gpa, "\">");
-                        try appendEscaped(out, slice);
-                        try out.appendSlice(gpa, "</a>");
-                        break :i;
-                    }
-                }
-
-                if (token_index > 0 and ast.tokenTag(token_index - 1) == .keyword_fn) {
-                    try out.appendSlice(gpa, "<span class=\"tok-fn\">");
-                    try appendEscaped(out, slice);
-                    try out.appendSlice(gpa, "</span>");
-                    break :i;
-                }
-
-                if (Walk.isPrimitiveNonType(slice)) {
-                    try out.appendSlice(gpa, "<span class=\"tok-null\">");
-                    try appendEscaped(out, slice);
-                    try out.appendSlice(gpa, "</span>");
-                    break :i;
-                }
-
-                if (std.zig.primitives.isPrimitive(slice)) {
-                    try out.appendSlice(gpa, "<span class=\"tok-type\">");
-                    try appendEscaped(out, slice);
-                    try out.appendSlice(gpa, "</span>");
-                    break :i;
-                }
-
-                if (file.token_parents.get(token_index)) |field_access_node| {
-                    g.field_access_buffer.clearRetainingCapacity();
-                    try walkFieldAccesses(file_index, &g.field_access_buffer, field_access_node);
-                    if (g.field_access_buffer.items.len > 0) {
-                        try out.appendSlice(gpa, "<a href=\"#");
-                        _ = missing_feature_url_escape;
-                        try out.appendSlice(gpa, g.field_access_buffer.items);
-                        try out.appendSlice(gpa, "\">");
-                        try appendEscaped(out, slice);
-                        try out.appendSlice(gpa, "</a>");
-                    } else {
-                        try appendEscaped(out, slice);
-                    }
-                    break :i;
-                }
-
-                {
-                    g.field_access_buffer.clearRetainingCapacity();
-                    try resolveIdentLink(file_index, &g.field_access_buffer, token_index);
-                    if (g.field_access_buffer.items.len > 0) {
-                        try out.appendSlice(gpa, "<a href=\"#");
-                        _ = missing_feature_url_escape;
-                        try out.appendSlice(gpa, g.field_access_buffer.items);
-                        try out.appendSlice(gpa, "\">");
-                        try appendEscaped(out, slice);
-                        try out.appendSlice(gpa, "</a>");
-                        break :i;
-                    }
-                }
-
-                try appendEscaped(out, slice);
+            .identifier => {
+                try out.appendSlice(gpa, slice);
             },
 
             .number_literal => {
-                try out.appendSlice(gpa, "<span class=\"tok-number\">");
-                try appendEscaped(out, slice);
-                try out.appendSlice(gpa, "</span>");
+                try out.appendSlice(gpa, slice);
             },
 
             .bang,
@@ -311,10 +233,15 @@ pub fn fileSourceHtml(
             .angle_bracket_angle_bracket_right,
             .angle_bracket_angle_bracket_right_equal,
             .tilde,
-            => try appendEscaped(out, slice),
+            => try out.appendSlice(gpa, slice),
 
             .invalid, .invalid_periodasterisks => return error.InvalidToken,
         }
+    }
+
+    // Add closing markdown code fence if requested
+    if (options.add_code_fence) {
+        try out.appendSlice(gpa, "\n```");
     }
 }
 
@@ -328,6 +255,20 @@ fn appendUnindented(out: *std.ArrayListUnmanaged(u8), s: []const u8, indent: usi
         } else {
             try out.appendSlice(gpa, "\n");
             try appendEscaped(out, unindent(line, indent));
+        }
+    }
+}
+
+fn appendUnindentedPlain(out: *std.ArrayListUnmanaged(u8), s: []const u8, indent: usize) !void {
+    var it = std.mem.splitScalar(u8, s, '\n');
+    var is_first_line = true;
+    while (it.next()) |line| {
+        if (is_first_line) {
+            try out.appendSlice(gpa, line);
+            is_first_line = false;
+        } else {
+            try out.appendSlice(gpa, "\n");
+            try out.appendSlice(gpa, unindent(line, indent));
         }
     }
 }

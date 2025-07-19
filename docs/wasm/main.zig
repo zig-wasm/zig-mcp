@@ -240,22 +240,19 @@ const ErrorIdentifier = packed struct(u64) {
         const name = ast.tokenSlice(ei.token_index);
         const has_link = base_decl != decl_index;
 
-        try out.appendSlice(gpa, "<dt>");
+        try out.appendSlice(gpa, "**");
         try out.appendSlice(gpa, name);
+        try out.appendSlice(gpa, "**");
         if (has_link) {
-            try out.appendSlice(gpa, " <a href=\"#");
-            _ = missing_feature_url_escape;
-            try decl_index.get().fqn(out);
-            try out.appendSlice(gpa, "\">");
+            try out.appendSlice(gpa, " (from ");
             try out.appendSlice(gpa, decl_index.get().extra_info().name);
-            try out.appendSlice(gpa, "</a>");
+            try out.appendSlice(gpa, ")");
         }
-        try out.appendSlice(gpa, "</dt>");
+        try out.appendSlice(gpa, "\n\n");
 
         if (Decl.findFirstDocComment(ast, ei.token_index).unwrap()) |first_doc_comment| {
-            try out.appendSlice(gpa, "<dd>");
             try render_docs(out, decl_index, first_doc_comment, false);
-            try out.appendSlice(gpa, "</dd>");
+            try out.appendSlice(gpa, "\n\n");
         }
     }
 };
@@ -466,16 +463,13 @@ fn decl_field_html_fallible(
 ) !void {
     const decl = decl_index.get();
     const ast = decl.file.get_ast();
-    try out.appendSlice(gpa, "<pre><code>");
     try fileSourceHtml(decl.file, out, field_node, .{});
-    try out.appendSlice(gpa, "</code></pre>");
 
     const field = ast.fullContainerField(field_node).?;
 
     if (Decl.findFirstDocComment(ast, field.firstToken()).unwrap()) |first_doc_comment| {
-        try out.appendSlice(gpa, "<div class=\"fieldDocs\">");
+        try out.appendSlice(gpa, "\n\n");
         try render_docs(out, decl_index, first_doc_comment, false);
-        try out.appendSlice(gpa, "</div>");
     }
 }
 
@@ -501,16 +495,15 @@ fn decl_param_html_fallible(
     };
     const name = ast.tokenSlice(name_token);
 
-    try out.appendSlice(gpa, "<pre><code>");
-    try appendEscaped(out, name);
+    try out.appendSlice(gpa, "```zig\n");
+    try out.appendSlice(gpa, name);
     try out.appendSlice(gpa, ": ");
-    try fileSourceHtml(decl.file, out, param_node, .{});
-    try out.appendSlice(gpa, "</code></pre>");
+    try fileSourceHtml(decl.file, out, param_node, .{ .add_code_fence = false });
+    try out.appendSlice(gpa, "\n```");
 
     if (ast.tokenTag(first_doc_comment) == .doc_comment) {
-        try out.appendSlice(gpa, "<div class=\"fieldDocs\">");
+        try out.appendSlice(gpa, "\n\n");
         try render_docs(out, decl_index, first_doc_comment, false);
-        try out.appendSlice(gpa, "</div>");
     }
 }
 
@@ -690,9 +683,6 @@ fn render_docs(
     var parsed_doc = try parser.endInput();
     defer parsed_doc.deinit(gpa);
 
-    const g = struct {
-        var link_buffer: std.ArrayListUnmanaged(u8) = .empty;
-    };
 
     const Writer = std.ArrayListUnmanaged(u8).Writer;
     const Renderer = markdown.Renderer(Writer, Decl.Index);
@@ -708,21 +698,10 @@ fn render_docs(
                 const data = doc.nodes.items(.data)[@intFromEnum(node)];
                 switch (doc.nodes.items(.tag)[@intFromEnum(node)]) {
                     .code_span => {
-                        try writer.writeAll("<code>");
+                        try writer.writeAll("`");
                         const content = doc.string(data.text.content);
-                        if (resolve_decl_path(r.context, content)) |resolved_decl_index| {
-                            g.link_buffer.clearRetainingCapacity();
-                            try resolveDeclLink(resolved_decl_index, &g.link_buffer);
-
-                            try writer.writeAll("<a href=\"#");
-                            _ = missing_feature_url_escape;
-                            try writer.writeAll(g.link_buffer.items);
-                            try writer.print("\">{f}</a>", .{markdown.fmtHtml(content)});
-                        } else {
-                            try writer.print("{f}", .{markdown.fmtHtml(content)});
-                        }
-
-                        try writer.writeAll("</code>");
+                        try writer.writeAll(content);
+                        try writer.writeAll("`");
                     },
 
                     else => try Renderer.renderDefault(r, doc, node, writer),
@@ -754,14 +733,15 @@ export fn decl_type_html(decl_index: Decl.Index) String {
         // If there is an explicit type, use it.
         if (ast.fullVarDecl(decl.ast_node)) |var_decl| {
             if (var_decl.ast.type_node.unwrap()) |type_node| {
-                string_result.appendSlice(gpa, "<code>") catch @panic("OOM");
+                string_result.appendSlice(gpa, "`") catch @panic("OOM");
                 fileSourceHtml(decl.file, &string_result, type_node, .{
                     .skip_comments = true,
                     .collapse_whitespace = true,
+                    .add_code_fence = false,
                 }) catch |e| {
                     std.debug.panic("unable to render html: {s}", .{@errorName(e)});
                 };
-                string_result.appendSlice(gpa, "</code>") catch @panic("OOM");
+                string_result.appendSlice(gpa, "`") catch @panic("OOM");
                 break :t;
             }
         }
