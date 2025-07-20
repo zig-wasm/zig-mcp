@@ -15,10 +15,11 @@ const LOG_warn = 1;
 const LOG_info = 2;
 const LOG_debug = 3;
 
-const domContent: any = document.getElementById("content");
-const domSearch: any = document.getElementById("search");
-const domErrors: any = document.getElementById("errors");
-const domErrorsText: any = document.getElementById("errorsText");
+const domContent: any = typeof document !== "undefined" ? document.getElementById("content") : null;
+const domSearch: any = typeof document !== "undefined" ? document.getElementById("search") : null;
+const domErrors: any = typeof document !== "undefined" ? document.getElementById("errors") : null;
+const domErrorsText: any =
+    typeof document !== "undefined" ? document.getElementById("errorsText") : null;
 
 var searchTimer: any = null;
 
@@ -56,8 +57,8 @@ export function startDocsViewer() {
                 switch (level) {
                     case LOG_err:
                         console.error(msg);
-                        domErrorsText.textContent += msg + "\n";
-                        domErrors.classList.remove("hidden");
+                        if (domErrorsText) domErrorsText.textContent += msg + "\n";
+                        if (domErrors) domErrors.classList.remove("hidden");
                         break;
                     case LOG_warn:
                         console.warn(msg);
@@ -73,7 +74,7 @@ export function startDocsViewer() {
         },
     }).then((obj) => {
         wasm_exports = obj.instance.exports;
-        window.wasm = obj; // for debugging
+        if (typeof window !== "undefined") window.wasm = obj; // for debugging
 
         sources_promise.then((buffer) => {
             const js_array = new Uint8Array(buffer);
@@ -84,16 +85,21 @@ export function startDocsViewer() {
 
             updateModuleList();
 
-            window.addEventListener("popstate", onPopState, false);
-            domSearch.addEventListener("keydown", onSearchKeyDown, false);
-            domSearch.addEventListener("input", onSearchChange, false);
-            window.addEventListener("keydown", onWindowKeyDown, false);
+            if (typeof window !== "undefined") {
+                window.addEventListener("popstate", onPopState, false);
+                window.addEventListener("keydown", onWindowKeyDown, false);
+            }
+            if (domSearch) {
+                domSearch.addEventListener("keydown", onSearchKeyDown, false);
+                domSearch.addEventListener("input", onSearchChange, false);
+            }
             onHashChange(null);
         });
     });
 }
 
 function renderTitle() {
+    if (typeof document === "undefined") return;
     const suffix = " - Zig Documentation";
     if (curNavSearch.length > 0) {
         document.title = curNavSearch + " - Search" + suffix;
@@ -108,7 +114,7 @@ function renderTitle() {
 
 function render() {
     renderTitle();
-    domContent.textContent = "";
+    if (domContent) domContent.textContent = "";
 
     if (curNavSearch !== "") return renderSearch();
 
@@ -130,7 +136,7 @@ function render() {
 
 function renderHome() {
     if (moduleList.length == 0) {
-        domContent.textContent = "# Error\n\nsources.tar contains no modules";
+        if (domContent) domContent.textContent = "# Error\n\nsources.tar contains no modules";
         return;
     }
     return renderModule(0);
@@ -174,7 +180,8 @@ function renderSource(path: any) {
     markdown += "# " + path + "\n\n";
     markdown += unwrapString(wasm_exports.decl_source_html(decl_index));
 
-    domContent.textContent = markdown;
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 function renderNamespacePage(decl_index: any) {
@@ -198,7 +205,8 @@ function renderNamespacePage(decl_index: any) {
     const fields = declFields(decl_index).slice();
     markdown += renderNamespaceMarkdown(decl_index, members, fields);
 
-    domContent.textContent = markdown;
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 function renderFunction(decl_index: any) {
@@ -259,7 +267,8 @@ function renderFunction(decl_index: any) {
         markdown += "## Source Code\n\n" + source + "\n\n";
     }
 
-    domContent.textContent = markdown;
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 function renderGlobal(decl_index: any) {
@@ -284,7 +293,8 @@ function renderGlobal(decl_index: any) {
         markdown += "## Source Code\n\n" + source + "\n\n";
     }
 
-    domContent.textContent = markdown;
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 function renderTypeFunction(decl_index: any) {
@@ -331,7 +341,8 @@ function renderTypeFunction(decl_index: any) {
         }
     }
 
-    domContent.textContent = markdown;
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 function renderErrorSetPage(decl_index: any) {
@@ -360,7 +371,8 @@ function renderErrorSetPage(decl_index: any) {
         }
     }
 
-    domContent.textContent = markdown;
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 function renderNavMarkdown(decl_index: any) {
@@ -541,7 +553,9 @@ function renderNamespaceMarkdown(base_decl: any, members: any, fields: any) {
 }
 
 function renderNotFound() {
-    domContent.textContent = "# Error\n\nDeclaration not found.";
+    const markdown = "# Error\n\nDeclaration not found.";
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 function renderSearch() {
@@ -562,7 +576,8 @@ function renderSearch() {
         markdown += "No results found.\n\nPress escape to exit search.";
     }
 
-    domContent.textContent = markdown;
+    if (domContent) domContent.textContent = markdown;
+    return markdown;
 }
 
 // Event handlers and utility functions (unchanged from original)
@@ -597,9 +612,9 @@ function updateCurNav(location_hash: any) {
 }
 
 function onHashChange(state: any) {
-    history.replaceState({}, "");
-    navigate(location.hash);
-    if (state == null) window.scrollTo({ top: 0 });
+    if (typeof history !== "undefined") history.replaceState({}, "");
+    if (typeof location !== "undefined") navigate(location.hash);
+    if (state == null && typeof window !== "undefined") window.scrollTo({ top: 0 });
 }
 
 function onPopState(ev: any) {
@@ -608,7 +623,7 @@ function onPopState(ev: any) {
 
 function navigate(location_hash: any) {
     updateCurNav(location_hash);
-    if (domSearch.value !== curNavSearch) {
+    if (domSearch && domSearch.value !== curNavSearch) {
         domSearch.value = curNavSearch;
     }
     render();
@@ -619,14 +634,16 @@ function onSearchKeyDown(ev: any) {
         case "Enter":
             if (ev.shiftKey || ev.ctrlKey || ev.altKey) return;
             clearAsyncSearch();
-            location.hash = computeSearchHash();
+            if (typeof location !== "undefined") location.hash = computeSearchHash();
             ev.preventDefault();
             ev.stopPropagation();
             return;
         case "Escape":
             if (ev.shiftKey || ev.ctrlKey || ev.altKey) return;
-            domSearch.value = "";
-            domSearch.blur();
+            if (domSearch) {
+                domSearch.value = "";
+                domSearch.blur();
+            }
             ev.preventDefault();
             ev.stopPropagation();
             startSearch();
@@ -645,8 +662,10 @@ function onWindowKeyDown(ev: any) {
     switch (ev.code) {
         case "KeyS":
             if (ev.shiftKey || ev.ctrlKey || ev.altKey) return;
-            domSearch.focus();
-            domSearch.select();
+            if (domSearch) {
+                domSearch.focus();
+                domSearch.select();
+            }
             ev.preventDefault();
             ev.stopPropagation();
             startAsyncSearch();
@@ -667,6 +686,7 @@ function startAsyncSearch() {
 }
 
 function computeSearchHash() {
+    if (typeof location === "undefined" || !domSearch) return "";
     const oldWatHash = location.hash;
     const oldHash = oldWatHash.startsWith("#") ? oldWatHash : "#" + oldWatHash;
     const parts = oldHash.split("?");
@@ -790,4 +810,123 @@ function setInputString(s: any) {
     const ptr = wasm_exports.set_input_string(len);
     const wasmArray = new Uint8Array(wasm_exports.memory.buffer, ptr, len);
     wasmArray.set(jsArray);
+}
+
+export async function searchStdLib(
+    wasmPath: string,
+    stdSources: Uint8Array<ArrayBuffer>,
+    query: string,
+    limit: number = 20,
+): Promise<string> {
+    const fs = await import("node:fs");
+    const wasmBytes = fs.readFileSync(wasmPath);
+
+    const wasmModule = await WebAssembly.instantiate(wasmBytes, {
+        js: {
+            log: (level: any, ptr: any, len: any) => {
+                const msg = decodeString(ptr, len);
+                if (level === LOG_err) {
+                    throw new Error(msg);
+                }
+            },
+        },
+    });
+
+    const exports = wasmModule.instance.exports as any;
+    wasm_exports = exports;
+
+    const ptr = exports.alloc(stdSources.length);
+    const wasmArray = new Uint8Array(exports.memory.buffer, ptr, stdSources.length);
+    wasmArray.set(stdSources);
+    exports.unpack(ptr, stdSources.length);
+
+    const ignoreCase = query.toLowerCase() === query;
+    const results = executeQuery(query, ignoreCase);
+
+    let markdown = `# Search Results\n\nQuery: "${query}"\n\n`;
+
+    if (results.length > 0) {
+        const limitedResults = results.slice(0, limit);
+        markdown += `Found ${results.length} results (showing ${limitedResults.length}):\n\n`;
+        for (let i = 0; i < limitedResults.length; i++) {
+            const match = limitedResults[i];
+            const full_name = fullyQualifiedName(match);
+            markdown += `- ${full_name}\n`;
+        }
+    } else {
+        markdown += "No results found.";
+    }
+
+    return markdown;
+}
+
+export async function getStdLibItem(
+    wasmPath: string,
+    stdSources: Uint8Array<ArrayBuffer>,
+    name: string,
+    getSourceCode: boolean = false,
+): Promise<string> {
+    const fs = await import("node:fs");
+    const wasmBytes = fs.readFileSync(wasmPath);
+
+    const wasmModule = await WebAssembly.instantiate(wasmBytes, {
+        js: {
+            log: (level: any, ptr: any, len: any) => {
+                const msg = decodeString(ptr, len);
+                if (level === LOG_err) {
+                    throw new Error(msg);
+                }
+            },
+        },
+    });
+
+    const exports = wasmModule.instance.exports as any;
+    wasm_exports = exports;
+
+    const ptr = exports.alloc(stdSources.length);
+    const wasmArray = new Uint8Array(exports.memory.buffer, ptr, stdSources.length);
+    wasmArray.set(stdSources);
+    exports.unpack(ptr, stdSources.length);
+
+    const decl_index = findDecl(name);
+    if (decl_index === null) {
+        return `# Error\n\nDeclaration "${name}" not found.`;
+    }
+
+    if (getSourceCode) {
+        const source = unwrapString(exports.decl_source_html(decl_index));
+        if (source.length > 0) {
+            return `# ${name} - Source Code\n\n${source}`;
+        } else {
+            return `# ${name}\n\nNo source code available.`;
+        }
+    }
+
+    const category = exports.categorize_decl(decl_index, 0);
+    switch (category) {
+        case CAT_namespace:
+        case CAT_container:
+            return renderNamespacePage(decl_index);
+        case CAT_global_variable:
+        case CAT_primitive:
+        case CAT_global_const:
+        case CAT_type:
+        case CAT_type_type:
+            return renderGlobal(decl_index);
+        case CAT_function:
+            return renderFunction(decl_index);
+        case CAT_type_function:
+            return renderTypeFunction(decl_index);
+        case CAT_error_set:
+            return renderErrorSetPage(decl_index);
+        case CAT_alias:
+            return getStdLibItem(
+                wasmPath,
+                stdSources,
+                fullyQualifiedName(exports.get_aliasee()),
+                getSourceCode,
+            );
+        default:
+            return `# Error\n\nUnrecognized category ${category} for "${name}".`;
+    }
 }

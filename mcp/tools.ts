@@ -1,6 +1,8 @@
+import * as path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 import type { BuiltinFunction } from "./extract-builtin-functions.js";
+import { getStdLibItem, searchStdLib } from "./std.js";
 
 function createListBuiltinFunctionsTool(builtinFunctions: BuiltinFunction[]) {
     return {
@@ -103,16 +105,129 @@ function getBuiltinFunctionTool(builtinFunctions: BuiltinFunction[]) {
     };
 }
 
+function searchStdLibTool(wasmPath: string, stdSources: Uint8Array<ArrayBuffer>) {
+    return {
+        name: "search_std_lib",
+        config: {
+            description:
+                "Search the Zig standard library for functions, types, namespaces, and other declarations. Returns detailed markdown documentation for each matching item. Use this to explore the standard library and discover available functionality. Supports fuzzy matching and returns results ranked by relevance.",
+            inputSchema: {
+                query: z
+                    .string()
+                    .min(1, "Search query cannot be empty")
+                    .describe(
+                        "Search terms to find in the standard library (e.g., 'ArrayList', 'print', 'allocator', 'HashMap')",
+                    ),
+                limit: z
+                    .number()
+                    .int()
+                    .min(1)
+                    .default(20)
+                    .describe("Maximum number of results to return (default: 20)"),
+            },
+        },
+        handler: async ({ query, limit = 20 }: { query: string; limit: number }) => {
+            try {
+                const markdown = await searchStdLib(wasmPath, stdSources, query, limit);
+                return {
+                    content: [
+                        {
+                            type: "text" as const,
+                            text: markdown,
+                        },
+                    ],
+                };
+            } catch (error) {
+                return {
+                    content: [
+                        {
+                            type: "text" as const,
+                            text: `Error searching standard library: ${error instanceof Error ? error.message : String(error)}`,
+                        },
+                    ],
+                };
+            }
+        },
+    };
+}
+
+function getStdLibItemTool(wasmPath: string, stdSources: Uint8Array<ArrayBuffer>) {
+    return {
+        name: "get_std_lib_item",
+        config: {
+            description:
+                "Get detailed documentation for a specific item in the Zig standard library. Provide the fully qualified name (e.g., 'std.ArrayList', 'std.debug.print', 'std.mem.Allocator') to get comprehensive documentation including function signatures, parameters, return types, error sets, example usage, and optionally source code.",
+            inputSchema: {
+                name: z
+                    .string()
+                    .min(1, "Item name cannot be empty")
+                    .describe(
+                        "Fully qualified name of the standard library item (e.g., 'std.ArrayList', 'std.debug.print', 'std.mem.Allocator')",
+                    ),
+                get_source_code: z
+                    .boolean()
+                    .default(false)
+                    .describe(
+                        "Include source code only in the response (default: false - shows detailed documentation only)",
+                    ),
+            },
+        },
+        handler: async ({
+            name,
+            get_source_code = false,
+        }: {
+            name: string;
+            get_source_code: boolean;
+        }) => {
+            try {
+                const markdown = await getStdLibItem(wasmPath, stdSources, name, get_source_code);
+                return {
+                    content: [
+                        {
+                            type: "text" as const,
+                            text: markdown,
+                        },
+                    ],
+                };
+            } catch (error) {
+                return {
+                    content: [
+                        {
+                            type: "text" as const,
+                            text: `Error getting standard library item: ${error instanceof Error ? error.message : String(error)}`,
+                        },
+                    ],
+                };
+            }
+        },
+    };
+}
+
 export function registerAllTools(
     mcpServer: McpServer,
     builtinFunctions: BuiltinFunction[],
-    _stdSources: Uint8Array<ArrayBuffer>,
+    stdSources: Uint8Array<ArrayBuffer>,
 ) {
-    const tools = [
-        createListBuiltinFunctionsTool(builtinFunctions),
-        getBuiltinFunctionTool(builtinFunctions),
-    ];
-    tools.forEach(({ name, config, handler }) => {
-        mcpServer.registerTool(name, config, handler);
-    });
+    const currentDir = path.dirname(new URL(import.meta.url).pathname);
+    const wasmPath = path.join(currentDir, "main.wasm");
+
+    const listBuiltinFunctionsTool = createListBuiltinFunctionsTool(builtinFunctions);
+    mcpServer.registerTool(
+        listBuiltinFunctionsTool.name,
+        listBuiltinFunctionsTool.config,
+        listBuiltinFunctionsTool.handler,
+    );
+
+    const getBuiltinFunction = getBuiltinFunctionTool(builtinFunctions);
+    mcpServer.registerTool(
+        getBuiltinFunction.name,
+        getBuiltinFunction.config,
+        getBuiltinFunction.handler,
+    );
+
+    const stdLibSearch = searchStdLibTool(wasmPath, stdSources);
+    mcpServer.registerTool(stdLibSearch.name, stdLibSearch.config, stdLibSearch.handler);
+
+    const stdLibItem = getStdLibItemTool(wasmPath, stdSources);
+    mcpServer.registerTool(stdLibItem.name, stdLibItem.config, stdLibItem.handler);
 }
