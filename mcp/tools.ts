@@ -103,7 +103,11 @@ function getBuiltinFunctionTool(builtinFunctions: BuiltinFunction[]) {
     };
 }
 
-export function registerAllTools(mcpServer: McpServer, builtinFunctions: BuiltinFunction[]) {
+export function registerAllTools(
+    mcpServer: McpServer,
+    builtinFunctions: BuiltinFunction[],
+    _stdSources: Uint8Array<ArrayBuffer>,
+) {
     const tools = [
         createListBuiltinFunctionsTool(builtinFunctions),
         getBuiltinFunctionTool(builtinFunctions),

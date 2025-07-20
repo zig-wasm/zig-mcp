@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ensureDocs, startViewServer, type UpdatePolicy } from "./docs.js";
+import { downloadSourcesTar, ensureDocs, startViewServer, type UpdatePolicy } from "./docs.js";
 import { registerAllTools } from "./tools.js";
 
 interface CLIOptions {
@@ -88,6 +88,7 @@ async function main() {
     }
 
     const builtinFunctions = await ensureDocs(options.version, options.updatePolicy, true);
+    const stdSources = await downloadSourcesTar(options.version);
 
     const mcpServer = new McpServer({
         name: "ZigDocs",
@@ -96,7 +97,7 @@ async function main() {
         version: options.version,
     });
 
-    registerAllTools(mcpServer, builtinFunctions);
+    registerAllTools(mcpServer, builtinFunctions, stdSources);
 
     const transport = new StdioServerTransport();
     await mcpServer.connect(transport);

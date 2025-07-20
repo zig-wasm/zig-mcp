@@ -74,14 +74,14 @@ export async function ensureDocs(
     return await extractBuiltinFunctions(zigVersion, isMcpMode);
 }
 
-async function downloadSourcesTar(zigVersion: string): Promise<string> {
+export async function downloadSourcesTar(zigVersion: string): Promise<Uint8Array> {
     const paths = envPaths("zig-docs-mcp", { suffix: "" });
     const versionCacheDir = path.join(paths.cache, zigVersion);
     const sourcesPath = path.join(versionCacheDir, "sources.tar");
 
     if (fs.existsSync(sourcesPath)) {
         console.log(`Using cached sources.tar from ${sourcesPath}`);
-        return sourcesPath;
+        return new Uint8Array(fs.readFileSync(sourcesPath));
     }
 
     const url = `https://ziglang.org/documentation/${zigVersion}/std/sources.tar`;
@@ -95,14 +95,29 @@ async function downloadSourcesTar(zigVersion: string): Promise<string> {
     }
 
     const buffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(buffer);
 
     if (!fs.existsSync(versionCacheDir)) {
         fs.mkdirSync(versionCacheDir, { recursive: true });
     }
 
-    fs.writeFileSync(sourcesPath, new Uint8Array(buffer));
+    fs.writeFileSync(sourcesPath, uint8Array);
     console.log(`Downloaded sources.tar to ${sourcesPath}`);
 
+    return uint8Array;
+}
+
+async function downloadSourcesTarPath(zigVersion: string): Promise<string> {
+    const paths = envPaths("zig-docs-mcp", { suffix: "" });
+    const versionCacheDir = path.join(paths.cache, zigVersion);
+    const sourcesPath = path.join(versionCacheDir, "sources.tar");
+
+    if (fs.existsSync(sourcesPath)) {
+        console.log(`Using cached sources.tar from ${sourcesPath}`);
+        return sourcesPath;
+    }
+
+    await downloadSourcesTar(zigVersion);
     return sourcesPath;
 }
 
@@ -123,7 +138,7 @@ function openBrowser(url: string): void {
 
 export async function startViewServer(zigVersion: string): Promise<void> {
     try {
-        const sourcesPath = await downloadSourcesTar(zigVersion);
+        const sourcesPath = await downloadSourcesTarPath(zigVersion);
 
         const currentDir = path.dirname(new URL(import.meta.url).pathname);
         const wasmPath = path.join(currentDir, "main.wasm");
