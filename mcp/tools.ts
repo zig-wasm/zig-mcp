@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 import type { BuiltinFunction } from "./extract-builtin-functions.js";
@@ -208,7 +209,7 @@ export function registerAllTools(
     builtinFunctions: BuiltinFunction[],
     stdSources: Uint8Array<ArrayBuffer>,
 ) {
-    const currentDir = path.dirname(new URL(import.meta.url).pathname);
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
     const wasmPath = path.join(currentDir, "main.wasm");
 
     const listBuiltinFunctionsTool = createListBuiltinFunctionsTool(builtinFunctions);

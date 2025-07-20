@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { downloadSourcesTar, ensureDocs, startViewServer, type UpdatePolicy } from "./docs.js";
@@ -44,7 +45,7 @@ function parseArgs(args: string[]): CLIOptions {
 }
 
 function printHelp() {
-    console.log(`Usage: zig-docs-mcp [options] [command]
+    console.log(`Usage: zig-mcp [options] [command]
 
 Commands:
   update                                    Update documentation without starting MCP server
@@ -58,11 +59,11 @@ Options:
   -h, --help                                Show this help message
 
 Examples:
-  zig-docs-mcp                              # Start MCP server with master version
-  zig-docs-mcp --version 0.14.1             # Start with specific version
-  zig-docs-mcp --update-policy daily        # Auto-update daily on startup
-  zig-docs-mcp update --version 0.14.1      # Update docs to specific version
-  zig-docs-mcp view --version master        # View documentation for specific version`);
+  zig-mcp                                   # Start MCP server with master version
+  zig-mcp --version 0.14.1                  # Start with specific version
+  zig-mcp --update-policy daily             # Auto-update daily on startup
+  zig-mcp update --version 0.14.1           # Update docs to specific version
+  zig-mcp view --version master             # View documentation for specific version`);
 }
 
 async function main() {

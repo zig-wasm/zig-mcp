@@ -1,7 +1,7 @@
-import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import envPaths from "env-paths";
 import extractBuiltinFunctions, { type BuiltinFunction } from "./extract-builtin-functions.js";
 
@@ -12,7 +12,7 @@ export async function ensureDocs(
     updatePolicy: UpdatePolicy = "manual",
     isMcpMode = true,
 ): Promise<BuiltinFunction[]> {
-    const paths = envPaths("zig-docs-mcp", { suffix: "" });
+    const paths = envPaths("zig-mcp", { suffix: "" });
     const metadataPath = path.join(paths.cache, zigVersion, "metadata.json");
 
     let shouldUpdate = false;
@@ -78,7 +78,7 @@ export async function downloadSourcesTar(
     zigVersion: string,
     isMcpMode: boolean = false,
 ): Promise<Uint8Array> {
-    const paths = envPaths("zig-docs-mcp", { suffix: "" });
+    const paths = envPaths("zig-mcp", { suffix: "" });
     const versionCacheDir = path.join(paths.cache, zigVersion);
     const sourcesPath = path.join(versionCacheDir, "sources.tar");
 
@@ -111,7 +111,7 @@ export async function downloadSourcesTar(
 }
 
 async function downloadSourcesTarPath(zigVersion: string): Promise<string> {
-    const paths = envPaths("zig-docs-mcp", { suffix: "" });
+    const paths = envPaths("zig-mcp", { suffix: "" });
     const versionCacheDir = path.join(paths.cache, zigVersion);
     const sourcesPath = path.join(versionCacheDir, "sources.tar");
 
@@ -124,26 +124,11 @@ async function downloadSourcesTarPath(zigVersion: string): Promise<string> {
     return sourcesPath;
 }
 
-function openBrowser(url: string): void {
-    const platform = process.platform;
-    let command: string;
-
-    if (platform === "darwin") {
-        command = "open";
-    } else if (platform === "win32") {
-        command = "start";
-    } else {
-        command = "xdg-open";
-    }
-
-    spawn(command, [url], { detached: true, stdio: "ignore" }).unref();
-}
-
 export async function startViewServer(zigVersion: string): Promise<void> {
     try {
         const sourcesPath = await downloadSourcesTarPath(zigVersion);
 
-        const currentDir = path.dirname(new URL(import.meta.url).pathname);
+        const currentDir = path.dirname(fileURLToPath(import.meta.url));
         const wasmPath = path.join(currentDir, "main.wasm");
         const indexPath = path.join(currentDir, "index.html");
         const stdJsPath = path.join(currentDir, "std.js");
@@ -194,8 +179,6 @@ export async function startViewServer(zigVersion: string): Promise<void> {
             console.log(`Server started at ${url}`);
             console.log(`Serving Zig ${zigVersion} documentation`);
             console.log("Press Ctrl+C to stop the server");
-
-            openBrowser(url);
         });
 
         process.on("SIGINT", () => {
