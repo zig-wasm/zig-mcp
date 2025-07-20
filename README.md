@@ -2,14 +2,21 @@
 
 Model Context Protocol (MCP) server that provides up-to-date documentation for the Zig programming language standard library and builtin functions.
 
+It uses the same approach as Zig's official autodoc (ziglang.org) by reading STD lib source files directly through a WASM module. However instead of returning HTML, it outputs Markdown which significantly reduces token usage.
+
 > [!TIP]
 > Add `use zigdocs` to your prompt if you want to explicitly instruct the LLM to use Zig docs tools. Otherwise, LLM will automatically decide when to utilize MCP tools based on the context of your questions.
+
+<p align="center" width="100%">
+  <img src="https://raw.githubusercontent.com/zig-wasm/.github/refs/heads/main/static/readme_mcp_1.gif" width="49%" />
+  <img src="https://raw.githubusercontent.com/zig-wasm/.github/refs/heads/main/static/readme_mcp_2.gif" width="49%" />
+</p>
 
 ## Installation
 
 ### Claude Code
 ```bash
-claude mcp add zig-docs npx -y zig-docs-mcp --version master --update-policy manual
+claude mcp add zig-docs npx -y zig-mcp@latest --version master --update-policy manual
 ```
 
 ### Claude Desktop
@@ -19,7 +26,7 @@ Add to your MCP configuration:
   "mcpServers": {
     "zig-docs": {
       "command": "npx",
-      "args": ["-y", "zig-docs-mcp", "--version", "master", "--update-policy", "manual"]
+      "args": ["-y", "zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
     }
   }
 }
@@ -38,19 +45,19 @@ The CLI provides flexible options for version control and update management:
 
 ```bash
 # Start MCP server with defaults (master branch, manual updates)
-zig-docs-mcp
+zig-mcp
 
 # Use specific Zig version
-zig-docs-mcp --version 0.13.0
+zig-mcp --version 0.13.0
 
 # Enable automatic daily updates
-zig-docs-mcp --update-policy daily
+zig-mcp --update-policy daily
 
 # Update documentation without starting server
-zig-docs-mcp update --version 0.14.1
+zig-mcp update --version 0.14.1
 
 # Start local web server to view documentation
-zig-docs-mcp view --version 0.14.1
+zig-mcp view --version 0.14.1
 ```
 
 **Version options**:
@@ -65,6 +72,6 @@ zig-docs-mcp view --version 0.14.1
 ## Cache
 
 Documentation is fetched from ziglang.org and cached in platform-specific directories:
-- Linux: `~/.cache/zig-docs-mcp/`
-- macOS: `~/Library/Caches/zig-docs-mcp/`
-- Windows: `%LOCALAPPDATA%\zig-docs-mcp\`
+- Linux: `~/.cache/zig-mcp/`
+- macOS: `~/Library/Caches/zig-mcp/`
+- Windows: `%LOCALAPPDATA%\zig-mcp\`
