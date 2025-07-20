@@ -164,23 +164,23 @@ function getStdLibItemTool(wasmPath: string, stdSources: Uint8Array<ArrayBuffer>
                     .describe(
                         "Fully qualified name of the standard library item (e.g., 'std.ArrayList', 'std.debug.print', 'std.mem.Allocator')",
                     ),
-                get_source_code: z
+                get_source_file: z
                     .boolean()
                     .default(false)
                     .describe(
-                        "Include source code only in the response (default: false - shows detailed documentation only)",
+                        "Return the entire source file where this item is implemented (default: false - shows detailed documentation with item source code only)",
                     ),
             },
         },
         handler: async ({
             name,
-            get_source_code = false,
+            get_source_file = false,
         }: {
             name: string;
-            get_source_code: boolean;
+            get_source_file: boolean;
         }) => {
             try {
-                const markdown = await getStdLibItem(wasmPath, stdSources, name, get_source_code);
+                const markdown = await getStdLibItem(wasmPath, stdSources, name, get_source_file);
                 return {
                     content: [
                         {

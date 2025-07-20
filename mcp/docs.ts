@@ -74,18 +74,21 @@ export async function ensureDocs(
     return await extractBuiltinFunctions(zigVersion, isMcpMode);
 }
 
-export async function downloadSourcesTar(zigVersion: string): Promise<Uint8Array> {
+export async function downloadSourcesTar(
+    zigVersion: string,
+    isMcpMode: boolean = false,
+): Promise<Uint8Array> {
     const paths = envPaths("zig-docs-mcp", { suffix: "" });
     const versionCacheDir = path.join(paths.cache, zigVersion);
     const sourcesPath = path.join(versionCacheDir, "sources.tar");
 
     if (fs.existsSync(sourcesPath)) {
-        console.log(`Using cached sources.tar from ${sourcesPath}`);
+        if (!isMcpMode) console.log(`Using cached sources.tar from ${sourcesPath}`);
         return new Uint8Array(fs.readFileSync(sourcesPath));
     }
 
     const url = `https://ziglang.org/documentation/${zigVersion}/std/sources.tar`;
-    console.log(`Downloading sources.tar from: ${url}`);
+    if (!isMcpMode) console.log(`Downloading sources.tar from: ${url}`);
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -102,7 +105,7 @@ export async function downloadSourcesTar(zigVersion: string): Promise<Uint8Array
     }
 
     fs.writeFileSync(sourcesPath, uint8Array);
-    console.log(`Downloaded sources.tar to ${sourcesPath}`);
+    if (!isMcpMode) console.log(`Downloaded sources.tar to ${sourcesPath}`);
 
     return uint8Array;
 }
@@ -117,7 +120,7 @@ async function downloadSourcesTarPath(zigVersion: string): Promise<string> {
         return sourcesPath;
     }
 
-    await downloadSourcesTar(zigVersion);
+    await downloadSourcesTar(zigVersion, false);
     return sourcesPath;
 }
 

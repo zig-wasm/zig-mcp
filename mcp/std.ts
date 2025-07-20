@@ -187,9 +187,6 @@ function renderSource(path: any) {
 function renderNamespacePage(decl_index: any) {
     let markdown = "";
 
-    // Add navigation breadcrumb
-    markdown += renderNavMarkdown(decl_index);
-
     // Add title
     const name = unwrapString(wasm_exports.decl_category_name(decl_index));
     markdown += "# " + name + "\n\n";
@@ -212,32 +209,29 @@ function renderNamespacePage(decl_index: any) {
 function renderFunction(decl_index: any) {
     let markdown = "";
 
-    // Add navigation breadcrumb
-    markdown += renderNavMarkdown(decl_index);
-
     // Add title
     const name = unwrapString(wasm_exports.decl_category_name(decl_index));
-    markdown += "# " + name + "\n\n";
+    markdown += "# " + name + "\n";
 
     // Add documentation
     const docs = unwrapString(wasm_exports.decl_docs_html(decl_index, false));
     if (docs.length > 0) {
-        markdown += docs + "\n\n";
+        markdown += "\n" + docs;
     }
 
     // Add function prototype
     const proto = unwrapString(wasm_exports.decl_fn_proto_html(decl_index, false));
     if (proto.length > 0) {
-        markdown += "## Function Signature\n\n" + proto + "\n\n";
+        markdown += "\n\n## Function Signature\n\n" + proto;
     }
 
     // Add parameters
     const params = declParams(decl_index).slice();
     if (params.length > 0) {
-        markdown += "## Parameters\n\n";
+        markdown += "\n\n## Parameters\n";
         for (let i = 0; i < params.length; i++) {
             const param_html = unwrapString(wasm_exports.decl_param_html(decl_index, params[i]));
-            markdown += param_html + "\n\n";
+            markdown += "\n" + param_html;
         }
     }
 
@@ -247,10 +241,10 @@ function renderFunction(decl_index: any) {
         const base_decl = wasm_exports.fn_error_set_decl(decl_index, errorSetNode);
         const errorList = errorSetNodeList(decl_index, errorSetNode);
         if (errorList != null && errorList.length > 0) {
-            markdown += "## Errors\n\n";
+            markdown += "\n\n## Errors\n";
             for (let i = 0; i < errorList.length; i++) {
                 const error_html = unwrapString(wasm_exports.error_html(base_decl, errorList[i]));
-                markdown += error_html + "\n\n";
+                markdown += "\n" + error_html;
             }
         }
     }
@@ -258,13 +252,13 @@ function renderFunction(decl_index: any) {
     // Add doctest
     const doctest = unwrapString(wasm_exports.decl_doctest_html(decl_index));
     if (doctest.length > 0) {
-        markdown += "## Example Usage\n\n" + doctest + "\n\n";
+        markdown += "\n\n## Example Usage\n\n" + doctest;
     }
 
     // Add source code
     const source = unwrapString(wasm_exports.decl_source_html(decl_index));
     if (source.length > 0) {
-        markdown += "## Source Code\n\n" + source + "\n\n";
+        markdown += "\n\n## Source Code\n\n" + source;
     }
 
     if (domContent) domContent.textContent = markdown;
@@ -273,9 +267,6 @@ function renderFunction(decl_index: any) {
 
 function renderGlobal(decl_index: any) {
     let markdown = "";
-
-    // Add navigation breadcrumb
-    markdown += renderNavMarkdown(decl_index);
 
     // Add title
     const name = unwrapString(wasm_exports.decl_category_name(decl_index));
@@ -299,9 +290,6 @@ function renderGlobal(decl_index: any) {
 
 function renderTypeFunction(decl_index: any) {
     let markdown = "";
-
-    // Add navigation breadcrumb
-    markdown += renderNavMarkdown(decl_index);
 
     // Add title
     const name = unwrapString(wasm_exports.decl_category_name(decl_index));
@@ -347,9 +335,6 @@ function renderTypeFunction(decl_index: any) {
 
 function renderErrorSetPage(decl_index: any) {
     let markdown = "";
-
-    // Add navigation breadcrumb
-    markdown += renderNavMarkdown(decl_index);
 
     // Add title
     const name = unwrapString(wasm_exports.decl_category_name(decl_index));
@@ -864,7 +849,7 @@ export async function getStdLibItem(
     wasmPath: string,
     stdSources: Uint8Array<ArrayBuffer>,
     name: string,
-    getSourceCode: boolean = false,
+    getSourceFile: boolean = false,
 ): Promise<string> {
     const fs = await import("node:fs");
     const wasmBytes = fs.readFileSync(wasmPath);
@@ -893,13 +878,21 @@ export async function getStdLibItem(
         return `# Error\n\nDeclaration "${name}" not found.`;
     }
 
-    if (getSourceCode) {
-        const source = unwrapString(exports.decl_source_html(decl_index));
-        if (source.length > 0) {
-            return `# ${name} - Source Code\n\n${source}`;
-        } else {
-            return `# ${name}\n\nNo source code available.`;
+    if (getSourceFile) {
+        // Get the source file using decl_source_html for the file root
+        // We need to find the file that contains this declaration
+        const fqn = fullyQualifiedName(decl_index);
+        const filePath = getFilePathFromFqn(fqn);
+        if (filePath) {
+            const fileDecl = findFileRoot(filePath);
+            if (fileDecl !== null) {
+                let markdown = "";
+                markdown += "# " + filePath + "\n\n";
+                markdown += unwrapString(wasm_exports.decl_source_html(fileDecl));
+                return markdown;
+            }
         }
+        return `# Error\n\nCould not find source file for "${name}".`;
     }
 
     const category = exports.categorize_decl(decl_index, 0);
@@ -924,9 +917,23 @@ export async function getStdLibItem(
                 wasmPath,
                 stdSources,
                 fullyQualifiedName(exports.get_aliasee()),
-                getSourceCode,
+                getSourceFile,
             );
         default:
             return `# Error\n\nUnrecognized category ${category} for "${name}".`;
     }
+}
+
+function getFilePathFromFqn(fqn: string): string | null {
+    // Convert fully qualified name to file path
+    const parts = fqn.split(".");
+    if (parts.length < 2) return null;
+
+    if (parts[0] === "std" && parts.length >= 2) {
+        return parts[0] + "/" + parts[1] + ".zig";
+    }
+
+    const pathParts = parts.slice(0, -1);
+    const filePath = pathParts.join("/") + ".zig";
+    return filePath;
 }

@@ -88,7 +88,7 @@ async function main() {
     }
 
     const builtinFunctions = await ensureDocs(options.version, options.updatePolicy, true);
-    const stdSources = await downloadSourcesTar(options.version);
+    const stdSources = await downloadSourcesTar(options.version, true);
 
     const mcpServer = new McpServer({
         name: "ZigDocs",
