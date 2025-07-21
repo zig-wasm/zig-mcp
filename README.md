@@ -15,18 +15,106 @@ It uses the same approach as Zig's official autodoc (ziglang.org) by reading STD
 ## Installation
 
 ### Claude Code
+
+Using Node:
+
 ```bash
 claude mcp add zig-docs npx -y zig-mcp@latest --version master --update-policy manual
 ```
 
-### Claude Desktop
-Add to your MCP configuration:
+Using Bun:
+
+```bash
+claude mcp add zig-docs bunx zig-mcp@latest --version master --update-policy manual
+```
+
+### Roo Code
+
+1. Click the **MCP** button in Roo Code
+2. Select **"Edit Global MCP"** or **"Edit Project MCP"**
+3. Add the following configuration:
+
+Using Node:
+
 ```json
 {
   "mcpServers": {
     "zig-docs": {
       "command": "npx",
       "args": ["-y", "zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
+    }
+  }
+}
+```
+
+Using Bun:
+
+```json
+{
+  "mcpServers": {
+    "zig-docs": {
+      "command": "bunx",
+      "args": ["zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
+    }
+  }
+}
+```
+
+### Augment Code
+
+Navigate to **Settings → MCP Servers → Add Server**, or edit the configuration directly:
+
+Using Node:
+
+```json
+{
+  "mcpServers": {
+    "zig-docs": {
+      "command": "npx",
+      "args": ["-y", "zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
+    }
+  }
+}
+```
+
+Using Bun:
+
+```json
+{
+  "mcpServers": {
+    "zig-docs": {
+      "command": "bunx",
+      "args": ["zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Add to your MCP configuration:
+
+Using Node:
+
+```json
+{
+  "mcpServers": {
+    "zig-docs": {
+      "command": "npx",
+      "args": ["-y", "zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
+    }
+  }
+}
+```
+
+Using Bun:
+
+```json
+{
+  "mcpServers": {
+    "zig-docs": {
+      "command": "bunx",
+      "args": ["zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
     }
   }
 }
