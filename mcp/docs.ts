@@ -39,6 +39,8 @@ export async function ensureDocs(
             if (!isMcpMode) console.log(`Updating documentation for Zig version: ${zigVersion}`);
             const builtinFunctions = await extractBuiltinFunctions(zigVersion, isMcpMode);
 
+            await downloadSourcesTar(zigVersion, isMcpMode, true);
+
             const dir = path.dirname(metadataPath);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
@@ -77,12 +79,13 @@ export async function ensureDocs(
 export async function downloadSourcesTar(
     zigVersion: string,
     isMcpMode: boolean = false,
+    forceUpdate: boolean = false,
 ): Promise<Uint8Array> {
     const paths = envPaths("zig-mcp", { suffix: "" });
     const versionCacheDir = path.join(paths.cache, zigVersion);
     const sourcesPath = path.join(versionCacheDir, "sources.tar");
 
-    if (fs.existsSync(sourcesPath)) {
+    if (fs.existsSync(sourcesPath) && !forceUpdate) {
         if (!isMcpMode) console.log(`Using cached sources.tar from ${sourcesPath}`);
         return new Uint8Array(fs.readFileSync(sourcesPath));
     }
