@@ -106,7 +106,7 @@ function getBuiltinFunctionTool(builtinFunctions: BuiltinFunction[]) {
     };
 }
 
-function searchStdLibTool(wasmPath: string, stdSources: Uint8Array<ArrayBuffer>) {
+function searchStdLibTool(wasmPath: string | Uint8Array, stdSources: Uint8Array<ArrayBuffer>) {
     return {
         name: "search_std_lib",
         config: {
@@ -152,7 +152,7 @@ function searchStdLibTool(wasmPath: string, stdSources: Uint8Array<ArrayBuffer>)
     };
 }
 
-function getStdLibItemTool(wasmPath: string, stdSources: Uint8Array<ArrayBuffer>) {
+function getStdLibItemTool(wasmPath: string | Uint8Array, stdSources: Uint8Array<ArrayBuffer>) {
     return {
         name: "get_std_lib_item",
         config: {
@@ -204,7 +204,7 @@ function getStdLibItemTool(wasmPath: string, stdSources: Uint8Array<ArrayBuffer>
     };
 }
 
-export function registerAllTools(
+export async function registerAllTools(
     mcpServer: McpServer,
     builtinFunctions: BuiltinFunction[],
     stdSources: Uint8Array<ArrayBuffer>,

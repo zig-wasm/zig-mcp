@@ -4,6 +4,8 @@ Model Context Protocol (MCP) server that provides up-to-date documentation for t
 
 It uses the same approach as Zig's official autodoc (ziglang.org) by reading STD lib source files directly through a WASM module. However instead of returning HTML, it outputs Markdown which significantly reduces token usage.
 
+By default, the server uses your locally installed Zig compiler to serve documentation, ensuring you always get docs that match your actual Zig version. It can also fetch documentation from ziglang.org if needed.
+
 > [!TIP]
 > Add `use zigdocs` to your prompt if you want to explicitly instruct the LLM to use Zig docs tools. Otherwise, LLM will automatically decide when to utilize MCP tools based on the context of your questions.
 
@@ -33,6 +35,9 @@ zig-mcp --version 0.14.1
 # Enable automatic daily updates
 zig-mcp --update-policy daily
 
+# Use remote documentation from ziglang.org instead of local Zig
+zig-mcp --doc-source remote --version 0.14.1
+
 # Update documentation without starting server
 zig-mcp update --version 0.15.1
 
@@ -49,9 +54,22 @@ zig-mcp view --version 0.15.1
 - `daily` - Check for documentation updates once per day
 - `startup` - Update documentation every time the server starts
 
-## Cache
+**Documentation sources**:
+- `local` (default) - Use your locally installed Zig compiler's documentation server (`zig std`)
+- `remote` - Download documentation from ziglang.org
 
-Documentation is fetched from ziglang.org and cached in platform-specific directories:
+## Documentation Sources
+
+### Local Mode (Default)
+
+The server automatically uses your local Zig installation to serve documentation via `zig std`. This ensures:
+- Documentation always matches your installed Zig version
+- No network requests needed for standard library docs
+- Faster response times
+
+### Remote Mode
+
+When using `--doc-source remote`, documentation is fetched from ziglang.org and cached in platform-specific directories:
 - Linux: `~/.cache/zig-mcp/`
 - macOS: `~/Library/Caches/zig-mcp/`
 - Windows: `%LOCALAPPDATA%\zig-mcp\`

@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { downloadSourcesTar, ensureDocs, startViewServer, type UpdatePolicy } from "./docs.js";
+import {
+    type DocSource,
+    downloadSourcesTar,
+    ensureDocs,
+    startViewServer,
+    type UpdatePolicy,
+} from "./docs.js";
 import { registerAllTools } from "./tools.js";
 
 interface CLIOptions {
     version: string;
     updatePolicy: UpdatePolicy;
+    docSource: DocSource;
     command?: "update" | "view";
 }
 
@@ -14,6 +21,7 @@ function parseArgs(args: string[]): CLIOptions {
     const options: CLIOptions = {
         version: "master",
         updatePolicy: "manual",
+        docSource: "local",
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -33,6 +41,14 @@ function parseArgs(args: string[]): CLIOptions {
                 console.error(
                     `Invalid update policy: ${policy}. Must be one of: manual, daily, startup`,
                 );
+                process.exit(1);
+            }
+        } else if (arg === "--doc-source" && i + 1 < args.length) {
+            const source = args[++i];
+            if (source === "local" || source === "remote") {
+                options.docSource = source;
+            } else {
+                console.error(`Invalid doc source: ${source}. Must be one of: local, remote`);
                 process.exit(1);
             }
         } else if (arg === "--help" || arg === "-h") {
@@ -56,6 +72,8 @@ Options:
                                             Examples: master, 0.13.0, 0.14.1
   --update-policy <policy>                  Update policy (default: manual)
                                             Options: manual, daily, startup
+  --doc-source <source>                     Documentation source (default: local)
+                                            Options: local (use local Zig), remote (download from ziglang.org)
   -h, --help                                Show this help message
 
 Examples:
@@ -72,7 +90,7 @@ async function main() {
 
     if (options.command === "update") {
         try {
-            await ensureDocs(options.version, "startup", false);
+            await ensureDocs(options.version, "startup", false, options.docSource);
             process.exit(0);
         } catch {
             process.exit(1);
@@ -88,8 +106,13 @@ async function main() {
         }
     }
 
-    const builtinFunctions = await ensureDocs(options.version, options.updatePolicy, true);
-    const stdSources = await downloadSourcesTar(options.version, true);
+    const builtinFunctions = await ensureDocs(
+        options.version,
+        options.updatePolicy,
+        true,
+        options.docSource,
+    );
+    const stdSources = await downloadSourcesTar(options.version, true, false, options.docSource);
 
     const mcpServer = new McpServer({
         name: "ZigDocs",
@@ -98,7 +121,7 @@ async function main() {
         version: options.version,
     });
 
-    registerAllTools(mcpServer, builtinFunctions, stdSources);
+    await registerAllTools(mcpServer, builtinFunctions, stdSources);
 
     const transport = new StdioServerTransport();
     await mcpServer.connect(transport);

@@ -815,13 +815,13 @@ function setInputString(s: any) {
 }
 
 export async function searchStdLib(
-    wasmPath: string,
+    wasmPath: string | Uint8Array,
     stdSources: Uint8Array<ArrayBuffer>,
     query: string,
     limit: number = 20,
 ): Promise<string> {
     const fs = await import("node:fs");
-    const wasmBytes = fs.readFileSync(wasmPath);
+    const wasmBytes = typeof wasmPath === "string" ? fs.readFileSync(wasmPath) : wasmPath;
 
     const wasmModule = await WebAssembly.instantiate(wasmBytes, {
         js: {
@@ -834,7 +834,7 @@ export async function searchStdLib(
         },
     });
 
-    const exports = wasmModule.instance.exports as any;
+    const exports = (wasmModule as any).instance.exports as any;
     wasm_exports = exports;
 
     const ptr = exports.alloc(stdSources.length);
@@ -863,13 +863,13 @@ export async function searchStdLib(
 }
 
 export async function getStdLibItem(
-    wasmPath: string,
+    wasmPath: string | Uint8Array,
     stdSources: Uint8Array<ArrayBuffer>,
     name: string,
     getSourceFile: boolean = false,
 ): Promise<string> {
     const fs = await import("node:fs");
-    const wasmBytes = fs.readFileSync(wasmPath);
+    const wasmBytes = typeof wasmPath === "string" ? fs.readFileSync(wasmPath) : wasmPath;
 
     const wasmModule = await WebAssembly.instantiate(wasmBytes, {
         js: {
@@ -882,7 +882,7 @@ export async function getStdLibItem(
         },
     });
 
-    const exports = wasmModule.instance.exports as any;
+    const exports = (wasmModule as any).instance.exports as any;
     wasm_exports = exports;
 
     const ptr = exports.alloc(stdSources.length);

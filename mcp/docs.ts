@@ -4,13 +4,16 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import envPaths from "env-paths";
 import extractBuiltinFunctions, { type BuiltinFunction } from "./extract-builtin-functions.js";
+import { getLocalStdSources, getZigVersion } from "./local-std-server.js";
 
 export type UpdatePolicy = "manual" | "daily" | "startup";
+export type DocSource = "local" | "remote";
 
 export async function ensureDocs(
     zigVersion: string,
     updatePolicy: UpdatePolicy = "manual",
     isMcpMode = true,
+    docSource: DocSource = "local",
 ): Promise<BuiltinFunction[]> {
     const paths = envPaths("zig-mcp", { suffix: "" });
     const metadataPath = path.join(paths.cache, zigVersion, "metadata.json");
@@ -39,7 +42,7 @@ export async function ensureDocs(
             if (!isMcpMode) console.log(`Updating documentation for Zig version: ${zigVersion}`);
             const builtinFunctions = await extractBuiltinFunctions(zigVersion, isMcpMode, true);
 
-            await downloadSourcesTar(zigVersion, isMcpMode, true);
+            await downloadSourcesTar(zigVersion, isMcpMode, true, docSource);
 
             const dir = path.dirname(metadataPath);
             if (!fs.existsSync(dir)) {
@@ -80,7 +83,22 @@ export async function downloadSourcesTar(
     zigVersion: string,
     isMcpMode: boolean = false,
     forceUpdate: boolean = false,
-): Promise<Uint8Array> {
+    docSource: DocSource = "local",
+): Promise<Uint8Array<ArrayBuffer>> {
+    if (docSource === "local") {
+        try {
+            if (!isMcpMode) console.log("Using local Zig std server for documentation");
+            const localVersion = getZigVersion();
+            if (!isMcpMode) console.log(`Local Zig version: ${localVersion}`);
+            return await getLocalStdSources();
+        } catch (error) {
+            if (!isMcpMode) {
+                console.log(`Failed to use local Zig std server: ${error}`);
+                console.log("Falling back to remote documentation");
+            }
+        }
+    }
+
     const paths = envPaths("zig-mcp", { suffix: "" });
     const versionCacheDir = path.join(paths.cache, zigVersion);
     const sourcesPath = path.join(versionCacheDir, "sources.tar");
