@@ -26,35 +26,32 @@ By default, the server uses your locally installed Zig compiler to serve documen
 The CLI provides flexible options for version control and update management:
 
 ```bash
-# Start MCP server with defaults (master branch, manual updates)
-zig-mcp
+# Start MCP server
+zig-mcp --doc-source local
 
-# Use specific Zig version
-zig-mcp --version 0.14.1
-
-# Enable automatic daily updates
-zig-mcp --update-policy daily
-
-# Use remote documentation from ziglang.org instead of local Zig
+# Use specific Zig version from ziglang.org instead of local Zig
 zig-mcp --doc-source remote --version 0.14.1
 
-# Update documentation without starting server
+# Enable automatic daily updates
+zig-mcp --doc-source remote --update-policy daily
+
+# Update documentation without starting MCP server (only for remote)
 zig-mcp update --version 0.15.1
 
 # Start local web server to view documentation
 zig-mcp view --version 0.15.1
 ```
 
-**Version options**:
+**Version options `--version`**:
 - `master` (default) - Latest development version from Zig's master branch
 - `0.14.1`, `0.14.0`, etc. - Specific Zig release versions
 
-**Update policies**:
+**Update policies `--update-policy`**:
 - `manual` (default) - No automatic updates, manual control only
 - `daily` - Check for documentation updates once per day
 - `startup` - Update documentation every time the server starts
 
-**Documentation sources**:
+**Documentation sources `--doc-source`**:
 - `local` (default) - Use your locally installed Zig compiler's documentation server (`zig std`)
 - `remote` - Download documentation from ziglang.org
 
@@ -76,15 +73,17 @@ When using `--doc-source remote`, documentation is fetched from ziglang.org and 
 
 ## Installation
 
+The installation examples below use the local documentation source by default. In local mode, docs are served by your installed Zig via `zig std`, requiring no network and matching your actual Zig version. This is the recommended setup for most users. For downloading docs from ziglang.org instead, see Remote Documentation (Optional) below.
+
 ### Claude Code
 Using npx (Node.js)
 ```bash
-claude mcp add zig-docs -- npx -y zig-mcp@latest --version master --update-policy manual
+claude mcp add zig-docs -- npx -y zig-mcp@latest
 ```
 
 Using bunx (Bun)
 ```bash
-claude mcp add zig-docs -- bunx zig-mcp@latest --version master --update-policy manual
+claude mcp add zig-docs -- bunx zig-mcp@latest
 ```
 
 ### Roo Code
@@ -109,7 +108,7 @@ Add the JSON configuration below to your MCP settings file.
   "mcpServers": {
     "zig-docs": {
       "command": "npx",
-      "args": ["-y", "zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
+      "args": ["-y", "zig-mcp@latest"]
     }
   }
 }
@@ -121,7 +120,46 @@ Add the JSON configuration below to your MCP settings file.
   "mcpServers": {
     "zig-docs": {
       "command": "bunx",
-      "args": ["zig-mcp@latest", "--version", "master", "--update-policy", "manual"]
+      "args": ["zig-mcp@latest"]
     }
   }
 }
+```
+
+### Remote Documentation (Optional)
+
+If you prefer downloading documentation from ziglang.org instead of using your local Zig, enable remote mode explicitly and choose a version:
+
+Using npx (Node.js)
+```bash
+claude mcp add zig-docs -- npx -y zig-mcp@latest --doc-source remote --version master
+```
+
+Using bunx (Bun)
+```bash
+claude mcp add zig-docs -- bunx zig-mcp@latest --doc-source remote --version 0.14.1
+```
+
+**Node.js (remote):**
+```json
+{
+  "mcpServers": {
+    "zig-docs": {
+      "command": "npx",
+      "args": ["-y", "zig-mcp@latest", "--doc-source", "remote", "--version", "master"]
+    }
+  }
+}
+```
+
+**Bun (remote):**
+```json
+{
+  "mcpServers": {
+    "zig-docs": {
+      "command": "bunx",
+      "args": ["zig-mcp@latest", "--doc-source", "remote", "--version", "0.14.1"]
+    }
+  }
+}
+```

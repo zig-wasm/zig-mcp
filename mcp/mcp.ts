@@ -23,6 +23,8 @@ function parseArgs(args: string[]): CLIOptions {
         updatePolicy: "manual",
         docSource: "local",
     };
+    let versionExplicit = false;
+    let docSourceExplicit = false;
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -33,6 +35,7 @@ function parseArgs(args: string[]): CLIOptions {
             options.command = "view";
         } else if (arg === "--version" && i + 1 < args.length) {
             options.version = args[++i];
+            versionExplicit = true;
         } else if (arg === "--update-policy" && i + 1 < args.length) {
             const policy = args[++i];
             if (policy === "manual" || policy === "daily" || policy === "startup") {
@@ -47,6 +50,7 @@ function parseArgs(args: string[]): CLIOptions {
             const source = args[++i];
             if (source === "local" || source === "remote") {
                 options.docSource = source;
+                docSourceExplicit = true;
             } else {
                 console.error(`Invalid doc source: ${source}. Must be one of: local, remote`);
                 process.exit(1);
@@ -56,7 +60,11 @@ function parseArgs(args: string[]): CLIOptions {
             process.exit(0);
         }
     }
-
+    // If user explicitly provided --version but not --doc-source,
+    // prefer remote docs since versioned docs come from ziglang.org
+    if (versionExplicit && !docSourceExplicit) {
+        options.docSource = "remote";
+    }
     return options;
 }
 
@@ -77,8 +85,8 @@ Options:
   -h, --help                                Show this help message
 
 Examples:
-  zig-mcp                                   # Start MCP server with master version
-  zig-mcp --version 0.14.1                  # Start with specific version
+  zig-mcp                                   # Start MCP server with master version (local)
+  zig-mcp --version 0.14.1                  # Start with specific version (remote)
   zig-mcp --update-policy daily             # Auto-update daily on startup
   zig-mcp update --version 0.14.1           # Update docs to specific version
   zig-mcp view --version master             # View documentation for specific version`);
