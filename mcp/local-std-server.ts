@@ -180,7 +180,6 @@ export async function getLocalStdSources(): Promise<Uint8Array<ArrayBuffer>> {
     });
 }
 
-
 process.on("exit", stopLocalStdServer);
 process.on("SIGINT", stopLocalStdServer);
 process.on("SIGTERM", stopLocalStdServer);
