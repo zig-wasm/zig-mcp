@@ -61,12 +61,12 @@ Documentation is fetched from ziglang.org and cached in platform-specific direct
 ### Claude Code
 Using npx (Node.js)
 ```bash
-claude mcp add zig-docs npx -y zig-mcp@latest --version master --update-policy manual
+claude mcp add zig-docs -- npx -y zig-mcp@latest --version master --update-policy manual
 ```
 
 Using bunx (Bun)
 ```bash
-claude mcp add zig-docs bunx zig-mcp@latest --version master --update-policy manual
+claude mcp add zig-docs -- bunx zig-mcp@latest --version master --update-policy manual
 ```
 
 ### Roo Code
