@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as cheerio from "cheerio";
 import envPaths from "env-paths";
+import { getLocalLangRef } from "./local-std-server.js";
 
 export interface BuiltinFunction {
     func: string;
@@ -9,41 +10,18 @@ export interface BuiltinFunction {
     docs: string;
 }
 
-async function extractBuiltinFunctions(
-    zigVersion: string,
-    isMcpMode = true,
-    forceUpdate = false,
-): Promise<BuiltinFunction[]> {
-    const paths = envPaths("zig-mcp", { suffix: "" });
-    const versionCacheDir = path.join(paths.cache, zigVersion);
-    const outputPath = path.join(versionCacheDir, "builtin-functions.json");
-
-    if (fs.existsSync(outputPath) && !forceUpdate) {
-        if (!isMcpMode) console.log(`Using cached builtin functions from ${outputPath}`);
-        try {
-            const content = fs.readFileSync(outputPath, "utf8");
-            return JSON.parse(content);
-        } catch (error) {
-            console.error(`Error reading cached file, re-extracting:`, error);
-        }
+function rewriteLink(text: string, href: string, linkBaseUrl: string | null): string {
+    if (href.startsWith("#") && linkBaseUrl) {
+        return `[${text}](${linkBaseUrl}${href})`;
     }
 
-    const url = `https://ziglang.org/documentation/${zigVersion}/`;
-    if (!isMcpMode) console.log(`Downloading HTML from: ${url}`);
+    return `[${text}](${href})`;
+}
 
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(
-            `Failed to download HTML from ${url}: ${response.status} ${response.statusText}`,
-        );
-    }
-
-    const html = await response.text();
+function parseBuiltinFunctionsHtml(html: string, linkBaseUrl: string | null): BuiltinFunction[] {
     const $ = cheerio.load(html);
-
     const builtins: BuiltinFunction[] = [];
 
-    // Find "Builtin Functions" section
     const builtinFunctionsSection = $('h2[id="Builtin-Functions"]');
     if (builtinFunctionsSection.length === 0) {
         throw new Error("Could not find Builtin Functions section in HTML");
@@ -75,13 +53,7 @@ async function extractBuiltinFunctions(
                             const link = $p(a);
                             const href = link.attr("href") || "";
                             const text = link.text();
-                            let markdownLink: string;
-                            if (href.startsWith("#")) {
-                                markdownLink = `[${text}](https://ziglang.org/documentation/${zigVersion}/${href})`;
-                            } else {
-                                markdownLink = `[${text}](${href})`;
-                            }
-                            link.replaceWith(markdownLink);
+                            link.replaceWith(rewriteLink(text, href, linkBaseUrl));
                         });
 
                         $p("code").each((_, code) => {
@@ -92,7 +64,6 @@ async function extractBuiltinFunctions(
                         const pText = $p.root().text();
                         descriptionParts.push(pText.replace(/\s+/g, " ").trim());
                     } else if (descCurrent.is("ul")) {
-                        // Convert each <li> to Markdown, handling <a> and <code> tags
                         descCurrent.children("li").each((_, li) => {
                             const liHtml = $(li).html() || "";
                             const $li = cheerio.load(liHtml, {
@@ -103,13 +74,7 @@ async function extractBuiltinFunctions(
                                 const link = $li(a);
                                 const href = link.attr("href") || "";
                                 const text = link.text();
-                                let markdownLink: string;
-                                if (href.startsWith("#")) {
-                                    markdownLink = `[${text}](https://ziglang.org/documentation/${zigVersion}/${href})`;
-                                } else {
-                                    markdownLink = `[${text}](${href})`;
-                                }
-                                link.replaceWith(markdownLink);
+                                link.replaceWith(rewriteLink(text, href, linkBaseUrl));
                             });
 
                             $li("code").each((_, code) => {
@@ -123,7 +88,6 @@ async function extractBuiltinFunctions(
                             }
                         });
                     } else if (descCurrent.is("figure")) {
-                        // Extract <figcaption> and <pre> content
                         const figcaption = descCurrent.find("figcaption").first().text().trim();
                         const pre = descCurrent.find("pre").first();
                         const code = pre.text();
@@ -138,7 +102,6 @@ async function extractBuiltinFunctions(
                             }
                         }
                         if (code) {
-                            // Format as Markdown code block
                             const codeBlock = `${label}\n\`\`\`${lang}\n${code.trim()}\n\`\`\``;
                             descriptionParts.push(codeBlock.trim());
                         }
@@ -146,7 +109,6 @@ async function extractBuiltinFunctions(
                     descCurrent = descCurrent.next();
                 }
 
-                // Join doc blocks with a single newline and collapse multiple newlines
                 let docs = descriptionParts.join("\n");
                 docs = docs.replace(/\n{2,}/g, "\n").replace(/\n+$/g, "");
 
@@ -170,6 +132,66 @@ async function extractBuiltinFunctions(
         }
         current = current.next();
     }
+
+    return builtins;
+}
+
+async function extractBuiltinFunctions(
+    zigVersion: string,
+    isMcpMode = true,
+    forceUpdate = false,
+    docSource: "local" | "remote" = "remote",
+): Promise<BuiltinFunction[]> {
+    let cacheVersion = zigVersion;
+    let html: string | null = null;
+    let linkBaseUrl: string | null = `https://ziglang.org/documentation/${zigVersion}/`;
+
+    if (docSource === "local") {
+        try {
+            const localLangRef = getLocalLangRef();
+            cacheVersion = localLangRef.version;
+            html = localLangRef.html;
+            linkBaseUrl = null;
+            if (!isMcpMode) {
+                console.log(`Using local Zig langref from ${localLangRef.path}`);
+            }
+        } catch (error) {
+            if (!isMcpMode) {
+                console.log(`Failed to use local Zig langref: ${error}`);
+                console.log("Falling back to remote builtin documentation");
+            }
+        }
+    }
+
+    const paths = envPaths("zig-mcp", { suffix: "" });
+    const versionCacheDir = path.join(paths.cache, cacheVersion);
+    const outputPath = path.join(versionCacheDir, "builtin-functions.json");
+
+    if (fs.existsSync(outputPath) && !forceUpdate) {
+        if (!isMcpMode) console.log(`Using cached builtin functions from ${outputPath}`);
+        try {
+            const content = fs.readFileSync(outputPath, "utf8");
+            return JSON.parse(content);
+        } catch (error) {
+            console.error(`Error reading cached file, re-extracting:`, error);
+        }
+    }
+
+    if (!html) {
+        const url = `https://ziglang.org/documentation/${zigVersion}/`;
+        if (!isMcpMode) console.log(`Downloading HTML from: ${url}`);
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(
+                `Failed to download HTML from ${url}: ${response.status} ${response.statusText}`,
+            );
+        }
+
+        html = await response.text();
+    }
+
+    const builtins = parseBuiltinFunctionsHtml(html, linkBaseUrl);
 
     if (!fs.existsSync(versionCacheDir)) {
         fs.mkdirSync(versionCacheDir, { recursive: true });

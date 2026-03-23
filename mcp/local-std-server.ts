@@ -9,12 +9,46 @@ interface LocalStdServer {
     baseUrl: string;
 }
 
+interface LocalZigMetadata {
+    zigPath: string;
+    zigExePath: string;
+    libDir: string | null;
+    version: string;
+}
+
+interface LocalLangRef {
+    version: string;
+    path: string;
+    html: string;
+}
+
 let activeServer: LocalStdServer | null = null;
+
+function runZigCommand(zigPath: string, args: string[]): string {
+    const result = child_process.spawnSync(zigPath, args, {
+        encoding: "utf8",
+    });
+
+    if (result.status === 0) {
+        return result.stdout.trim();
+    }
+
+    if (result.error) {
+        throw result.error;
+    }
+
+    const stderr = result.stderr.trim();
+    throw new Error(
+        stderr.length > 0
+            ? stderr
+            : `zig ${args.join(" ")} exited with code ${result.status ?? "unknown"}`,
+    );
+}
 
 function findZigExecutable(): string {
     const zigPath = process.env.ZIG_PATH || "zig";
     try {
-        const result = child_process.execSync(`${zigPath} version`, { encoding: "utf8" });
+        const result = runZigCommand(zigPath, ["version"]);
         if (result.includes("dev") || /\d+\.\d+\.\d+/.test(result)) {
             return zigPath;
         }
@@ -33,7 +67,7 @@ function findZigExecutable(): string {
     for (const p of commonPaths) {
         if (fs.existsSync(p)) {
             try {
-                child_process.execSync(`${p} version`, { encoding: "utf8" });
+                runZigCommand(p, ["version"]);
                 return p;
             } catch {
                 // Continue checking
@@ -44,14 +78,62 @@ function findZigExecutable(): string {
     return "zig";
 }
 
-export function getZigVersion(): string {
+function getZigEnvValue(output: string, key: string): string | null {
+    const jsonMatch = output.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`));
+    if (jsonMatch) {
+        return jsonMatch[1];
+    }
+
+    const zigSyntaxMatch = output.match(new RegExp(`\\.${key}\\s*=\\s*"([^"]+)"`));
+    if (zigSyntaxMatch) {
+        return zigSyntaxMatch[1];
+    }
+
+    return null;
+}
+
+function getLocalZigMetadata(): LocalZigMetadata {
     const zigPath = findZigExecutable();
     try {
-        const result = child_process.execSync(`${zigPath} version`, { encoding: "utf8" });
-        return result.trim();
+        const envOutput = runZigCommand(zigPath, ["env"]);
+        const zigExePath = getZigEnvValue(envOutput, "zig_exe") || zigPath;
+        const version = getZigEnvValue(envOutput, "version") || runZigCommand(zigPath, ["version"]);
+        const libDir = getZigEnvValue(envOutput, "lib_dir");
+
+        return {
+            zigPath,
+            zigExePath,
+            libDir,
+            version,
+        };
     } catch (error) {
-        throw new Error(`Failed to get Zig version: ${error}`);
+        throw new Error(`Failed to inspect local Zig installation: ${error}`);
     }
+}
+
+export function getZigVersion(): string {
+    return getLocalZigMetadata().version;
+}
+
+export function getLocalLangRef(): LocalLangRef {
+    const metadata = getLocalZigMetadata();
+    const candidates = [
+        metadata.libDir ? path.resolve(metadata.libDir, "..", "doc", "langref.html") : null,
+        path.resolve(path.dirname(metadata.zigExePath), "doc", "langref.html"),
+        path.resolve(path.dirname(metadata.zigPath), "doc", "langref.html"),
+    ].filter((candidate): candidate is string => candidate !== null);
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return {
+                version: metadata.version,
+                path: candidate,
+                html: fs.readFileSync(candidate, "utf8"),
+            };
+        }
+    }
+
+    throw new Error(`Failed to locate local langref.html. Checked: ${candidates.join(", ")}`);
 }
 
 export async function startLocalStdServer(): Promise<LocalStdServer> {

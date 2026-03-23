@@ -1,6 +1,6 @@
 {
   "name": "zig-mcp",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "type": "module",
   "bin": {
     "zig-mcp": "dist/mcp.js"
