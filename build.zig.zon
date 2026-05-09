@@ -2,7 +2,7 @@
     .name = .zig_mcp,
     .version = "0.0.0",
     .fingerprint = 0x1c29ab0bcd4442bc,
-    .minimum_zig_version = "0.16.0-dev.205+4c0127566",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{},
     .paths = .{
         "build.zig",
